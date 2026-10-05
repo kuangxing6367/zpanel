@@ -177,6 +177,23 @@ fw.nodes.send_cmd('node-1', 'ping')                 # 下发命令到指定节�
 
 ## 四、快速开始
 
+### 一键安装（Linux，推荐）
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kuangxing6367/zpanel/main/install.sh -o install.sh
+bash install.sh --repo https://github.com/kuangxing6367/zpanel.git
+# 可选：--dir /opt/zpanel --port 8000 --unit zpanel --force
+```
+脚本自动装 4 个真实依赖 → 落码 → 生成干净配置 → systemd 托管 → 防火墙放行。
+机制包官方源（被管机自动拉取）：
+
+```yaml
+zkg:
+  official_source: https://raw.githubusercontent.com/kuangxing6367/zpanel/main/repo
+```
+
+### 手动方式
+
 ```bash
 # 1) 后端
 python -m venv venv
