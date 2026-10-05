@@ -175,7 +175,130 @@ def register(ctx):
     def _ok(d):
         return {'ok': True, 'data': d}
 
+    # ── ACME 签发（后台任务：网络轮询分钟级，进度逐段写日志）──
+    def _issue_run(domains, staging, email, site_id, task=None, task_id=None):
+        """签发全流程。挑战文件放 data/ssl/acme-challenge/（各站点 conf 已放行
+        /.well-known/acme-challenge/）；签成 → 证书落 data/ssl/<主域名>/ →
+        给了 site_id 就经命令通道回写站点 ssl 配置并重载引擎。"""
+        def _tlog(m):
+            try:
+                if task is not None and task_id:
+                    task.log(task_id, m)
+            except Exception:
+                pass
+
+        import importlib.util as _iu
+        from core.kernel.paths import project_root
+        root = project_root()
+        ssl_dir = os.path.join(root, 'data', 'ssl')
+        acme_root = os.path.join(ssl_dir, 'acme-challenge')
+        os.makedirs(acme_root, exist_ok=True)
+        main_domain = str(domains[0])
+        key_dir = os.path.join(ssl_dir, main_domain)
+        os.makedirs(key_dir, exist_ok=True)
+        account_key = os.path.join(ssl_dir, 'acme-account.key')
+
+        spec = _iu.spec_from_file_location('ssl_acme', os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), 'acme.py'))
+        acme = _iu.module_from_spec(spec)
+        spec.loader.exec_module(acme)
+
+        directory = acme.LETSENCRYPT_STAGING if staging else acme.LETSENCRYPT_DIR
+        _tlog(f"① ACME 目录（{'staging 测试' if staging else '生产'}）")
+        client = acme.AcmeClient(directory, account_key, log=_tlog)
+        _tlog("② 注册/复用 ACME 账号…")
+        client.ensure_account(email or '', terms_agreed=True)
+        _tlog(f"③ 新建订单：{', '.join(domains)}")
+        order = client.new_order(domains)
+        order_url = client.order_url
+
+        authz_urls = order.get('authorizations') or []
+        if not authz_urls:
+            return {'ok': False, 'error': '订单无 authorizations'}
+        thumb = acme._thumbprint(client.jwk)
+        placed = []
+        _tlog(f"④ 放置 {len(authz_urls)} 个 http-01 挑战文件…")
+        for authz_url in authz_urls:
+            authz = client.get_authz(authz_url)
+            ident = ((authz.get('identifier') or {}).get('value')) or ''
+            for ch in authz.get('challenges') or []:
+                if ch.get('type') == 'http-01':
+                    token = ch['token']
+                    with open(os.path.join(acme_root, token), 'w', encoding='utf-8') as f:
+                        f.write(token + '.' + thumb)
+                    placed.append((authz_url, ch['url'], ident))
+                    _tlog('   ' + (ident or '?') + ' 挑战文件就位')
+        if not placed:
+            return {'ok': False, 'error': '没有 http-01 挑战可响应'}
+
+        _tlog("⑤ 响应挑战，等待 CA 验证（CA 会回源访问 http://域名/.well-known/…）")
+        for authz_url, ch_url, ident in placed:
+            client.respond_challenge(ch_url)
+        for authz_url, ch_url, ident in placed:
+            authz = client.poll(authz_url, 'valid', timeout=120.0, log=_tlog)
+            _tlog('   ' + (ident or '?') + ' 验证通过')
+
+        _tlog("⑥ 生成站点密钥与 CSR…")
+        domain_key = os.path.join(key_dir, 'privkey.pem')
+        csr_path = os.path.join(key_dir, 'csr.der')
+        acme.make_domain_key_and_csr(domains, domain_key, csr_path)
+        _tlog("⑦ finalize…")
+        with open(csr_path, 'rb') as f:
+            order = client.finalize(order['finalize'], f.read())
+        order = client.poll(order_url, 'valid', timeout=60.0, log=_tlog)
+
+        cert_url = order.get('certificate')
+        if not cert_url:
+            return {'ok': False, 'error': '订单完成但缺 certificate 下载地址'}
+        _tlog("⑧ 下载证书链…")
+        st, pem, _ = client._post(cert_url, None)
+        fullchain = os.path.join(key_dir, 'fullchain.pem')
+        with open(fullchain, 'w', encoding='utf-8') as f:
+            f.write(pem if isinstance(pem, str) else json.dumps(pem))
+        _tlog(f"⑨ 证书已落盘：{fullchain}")
+
+        applied = False
+        if site_id:
+            _tlog("⑩ 回写站点 ssl 配置并重载引擎…")
+            try:
+                fw.nodes.send_cmd('localhost', 'sites.update',
+                                  {'id': site_id,
+                                   'enable_ssl': True,
+                                   'ssl_cert': fullchain,
+                                   'ssl_key': domain_key}, 30)
+                fw.nodes.send_cmd('localhost', 'sites.apply', {}, 60)
+                applied = True
+                _tlog('   站点已启用 HTTPS 并重载')
+            except Exception as e:
+                _tlog(f'   站点回写失败（证书已签出，可手动启用）: {e}')
+        return {'ok': True, 'domains': domains, 'fullchain': fullchain,
+                'privkey': domain_key, 'staging': staging, 'site_applied': applied}
+
+    def _h_issue(a):
+        data = a or {}
+        domains = data.get('domains') or []
+        if isinstance(domains, str):
+            domains = [d.strip() for d in domains.replace(';', ',').split(',') if d.strip()]
+        domains = [d for d in domains if d]
+        if not domains:
+            return {'ok': False, 'data': {'error': '域名不能为空'}}
+        tq = getattr(fw, 'task_queue', None)
+        if tq is None:
+            return {'ok': False, 'data': {'error': '任务队列不可用，签发必须走任务'}}
+
+        def _run(task_id=None):
+            return _issue_run(domains,
+                              staging=bool(data.get('staging')),
+                              email=str(data.get('email') or ''),
+                              site_id=str(data.get('site_id') or ''),
+                              task=tq, task_id=task_id)
+
+        tid = tq.submit(_run, name='签发证书 ' + domains[0],
+                        meta={'kind': 'ssl.issue', 'domain': domains[0]})
+        return {'ok': True, 'data': {'task_id': tid, 'domains': domains, 'async': True}}
+
     for name, fn, desc in (
+        ('ssl.issue', _h_issue, 'ACME 签发（后台任务，http-01 webroot）'),
         ('ssl.local', lambda a: _ok(_svc.local()), '本地证书清单与到期'),
         ('ssl.check', lambda a: _ok(_svc.check((a or {}).get('host', ''),
                                            int((a or {}).get('port') or 443))), '远端证书巡检'),

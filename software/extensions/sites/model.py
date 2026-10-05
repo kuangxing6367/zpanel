@@ -113,7 +113,17 @@ class Site:
             'ssl': {'enabled': self.enable_ssl, 'cert': self.ssl_cert,
                     'key': self.ssl_key},
             'log_dir': log_dir or '',
+            'acme_root': self.acme_root(),
         }
+
+    def acme_root(self) -> str:
+        """ACME http-01 挑战 webroot（全部站点共用一个目录）。"""
+        try:
+            from core.kernel.paths import project_root
+            import os
+            return os.path.join(project_root(), 'data', 'ssl', 'acme-challenge')
+        except Exception:
+            return ''
 
     def _php_socket(self) -> str:
         """PHP 站点实际使用的 fastcgi 端点。

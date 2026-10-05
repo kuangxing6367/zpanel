@@ -149,6 +149,12 @@ def render_server(site: dict) -> str:
     if has_ssl:
         body.append(_ssl_block(site, ssl))
 
+    # ACME http-01：挑战目录独立放行（webroot 由扩展传入；机器上所有站点共用）
+    acme_root = str(site.get("acme_root") or "").strip()
+    if acme_root:
+        body.append("    location ^~ /.well-known/acme-challenge/ {")
+        body.append(f"        root {_q(acme_root)};")
+        body.append("    }")
     if kind == "proxy":
         body.append(_proxy_location(site))
     elif kind == "php":
