@@ -1,0 +1,50 @@
+{
+ "apps": [
+  {
+   "id": "filebrowser",
+   "name": "File Browser",
+   "desc": "Web 文件管理器（与面板文件页互补的独立部署版）",
+   "version": "2.27.0",
+   "url": "https://github.com/filebrowser/filebrowser/releases/download/v2.27.0/linux-{arch}-filebrowser.tar.gz",
+   "binary": "filebrowser",
+   "default_port": 8180,
+   "args": [
+    "--address",
+    "0.0.0.0",
+    "--port",
+    "{port}",
+    "--database",
+    "{install_dir}/filebrowser.db",
+    "--root",
+    "/"
+   ],
+   "formFields": [
+    {
+     "key": "port",
+     "label": "访问端口",
+     "default": 8180,
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "rclone",
+   "name": "Rclone",
+   "desc": "云存储同步工具（40+ 云盘/对象存储，备份上云的瑞士军刀）",
+   "version": "1.67.0",
+   "url": "https://github.com/rclone/rclone/releases/download/v1.67.0/rclone-v1.67.0-linux-{arch}.zip",
+   "binary": "rclone-v1.67.0-linux-{arch}/rclone",
+   "web": false,
+   "formFields": []
+  },
+  {
+   "id": "uptime-kuma",
+   "name": "Uptime Kuma",
+   "desc": "站点可用性监控（拨测+状态页）—— Node 单目录应用",
+   "version": "1.23.13",
+   "url": "https://github.com/louislam/uptime-kuma/releases/download/1.23.13/uptime-kuma-1.23.13.tar.gz",
+   "disabled": true,
+   "note": "需要 node 运行时，二期接 runtime 体系后再开放"
+  }
+ ]
+}
