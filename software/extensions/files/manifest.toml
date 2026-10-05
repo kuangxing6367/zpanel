@@ -1,0 +1,9 @@
+[package]
+id = "files"
+name = "文件管理"
+type = "plugin"
+version = "0.3.0"
+description = "文件管理的壳：路径边界交 sandbox，文件操作交 fileops；只注册 files.* 命令 + 上传/下载两条流式接口"
+dependencies = ["sandbox", "fileops"]
+provides = ["files"]
+entry = "main.py"

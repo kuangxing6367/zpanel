@@ -1,0 +1,9 @@
+[package]
+id = "mailer"
+name = "Mailer"
+type = "tool"
+version = "1.0.0"
+description = "SMTP 发信（纯标准库）：SSL/STARTTLS/明文、多收件人、文本+HTML；配置由调用方传入，本包不碰存储"
+dependencies = []
+provides = ["mailer"]
+entry = "main.py"

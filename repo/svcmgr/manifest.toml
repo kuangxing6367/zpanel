@@ -1,0 +1,9 @@
+[package]
+id = "svcmgr"
+name = "Service Manager"
+type = "tool"
+version = "1.0.0"
+description = "系统服务管理门面：只做平台选择 + 委派，不含平台分支（实现在 svcmgr_win / svcmgr_nix）"
+dependencies = ["procs", "svcmgr_win", "svcmgr_nix"]
+provides = ["svcmgr"]
+entry = "main.py"

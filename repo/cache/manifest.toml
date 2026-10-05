@@ -1,0 +1,9 @@
+[package]
+id = "cache"
+name = "Cache"
+type = "tool"
+version = "1.0.0"
+description = "TTL + LRU 内存缓存（惰性过期、线程安全），下游不再各自手搓 dict 过期"
+dependencies = []
+provides = ["cache"]
+entry = "main.py"

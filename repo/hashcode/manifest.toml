@@ -1,0 +1,9 @@
+[package]
+id = "hashcode"
+name = "Hash & Codec"
+type = "tool"
+version = "1.0.0"
+description = "哈希摘要（sha256/sha1/md5）+ 编解码（base64/hex/url）+ 短 ID / UUID"
+dependencies = []
+provides = ["hashcode"]
+entry = "main.py"

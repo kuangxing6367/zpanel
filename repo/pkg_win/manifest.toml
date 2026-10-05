@@ -1,0 +1,9 @@
+[package]
+id = "pkg_win"
+name = "Package Manager (win)"
+type = "tool"
+version = "1.0.0"
+description = "Windows 家族：winget/choco 探测；Server 2012 无 winget 如实声明不可用"
+dependencies = ["procs"]
+provides = ["pkg_win"]
+entry = "main.py"

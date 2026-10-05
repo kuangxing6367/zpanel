@@ -1,0 +1,9 @@
+[package]
+id = "pkg_rpm"
+name = "Package Manager (rpm)"
+type = "tool"
+version = "1.0.0"
+description = "RPM 家族：dnf5/dnf/yum/zypper+rpm，覆盖 RHEL/CentOS/Fedora/Anolis/TencentOS/openSUSE"
+dependencies = ["procs"]
+provides = ["pkg_rpm"]
+entry = "main.py"

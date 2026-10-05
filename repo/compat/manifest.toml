@@ -1,0 +1,9 @@
+[package]
+id = "compat"
+name = "Version Compat Layer"
+type = "tool"
+version = "1.0.0"
+description = "版本兼容层：一个版本 = 一份配方声明（配置位置/服务名/校验命令/语法能力/SQL 档案），上层只问 resolve(family, version)，新增版本不改操作代码"
+dependencies = []
+provides = ["compat"]
+entry = "main.py"

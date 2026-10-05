@@ -1,0 +1,9 @@
+[package]
+id = "svcmgr_win"
+name = "Service Manager (Windows)"
+type = "tool"
+version = "1.0.0"
+description = "Windows 服务管理：sc.exe 启停查；已启/已停视为幂等成功；不代劳开机自启"
+dependencies = ["procs"]
+provides = ["svcmgr_win"]
+entry = "main.py"

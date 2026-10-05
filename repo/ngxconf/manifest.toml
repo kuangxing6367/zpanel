@@ -1,0 +1,9 @@
+[package]
+id = "ngxconf"
+name = "Nginx Config"
+type = "tool"
+version = "1.0.0"
+description = "Nginx 配置渲染与重载：server 块模板（静态/PHP/反代/SSL）、托管文件落盘与清理、nginx -t / -s reload"
+dependencies = ["lock", "procs"]
+provides = ["ngxconf"]
+entry = "main.py"

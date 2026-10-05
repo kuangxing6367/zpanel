@@ -1,0 +1,25 @@
+extensions:
+  runtime:
+    enabled: true
+  sites:
+    enabled: true
+  files:
+    enabled: true
+  terminal:
+    enabled: true
+  monitor:
+    enabled: true
+  scheduler:
+    enabled: true
+  database:
+    enabled: true
+  alerts:
+    enabled: true
+  backup:
+    enabled: true
+  firewall:
+    enabled: true
+  logs:
+    enabled: true
+  ssl:
+    enabled: true

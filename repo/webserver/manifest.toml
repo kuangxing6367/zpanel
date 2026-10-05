@@ -1,0 +1,9 @@
+[package]
+id = "webserver"
+name = "Web Server Facade"
+type = "tool"
+version = "1.0.0"
+description = "Web 服务器适配器门面：建站顶层只面向契约，引擎差异在 webserver_* 实现包"
+dependencies = ["webserver_nginx", "webserver_apache"]
+provides = ["webserver"]
+entry = "main.py"

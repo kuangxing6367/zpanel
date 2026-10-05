@@ -1,0 +1,9 @@
+[package]
+id = "services"
+name = "服务探测与部署"
+type = "plugin"
+version = "0.2.0"
+description = "探测 nginx/MySQL/Redis 等服务的安装与运行状态；白名单服务一键安装（包管理器）与启停"
+dependencies = ["probe", "svcmgr", "procs", "pkg"]
+provides = ["services"]
+entry = "main.py"

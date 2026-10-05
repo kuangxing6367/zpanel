@@ -1,0 +1,9 @@
+[package]
+id = "pkg_pacman"
+name = "Package Manager (pacman)"
+type = "tool"
+version = "1.0.0"
+description = "Arch/Manjaro 家族：pacman，db.lck 锁检测"
+dependencies = ["procs"]
+provides = ["pkg_pacman"]
+entry = "main.py"

@@ -1,0 +1,9 @@
+[package]
+id = "http"
+name = "HTTP Client"
+type = "tool"
+version = "1.0.0"
+description = "统一 HTTP 客户端（urllib 封装：JSON 编解码/超时/大小上限/统一结果对象），插件调外部 API 不再各自手搓"
+dependencies = []
+provides = ["http"]
+entry = "main.py"

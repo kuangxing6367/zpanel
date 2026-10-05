@@ -1,0 +1,9 @@
+[package]
+id = "database"
+name = "数据库管理"
+type = "plugin"
+version = "0.1.0"
+description = "管已有的 MySQL/PostgreSQL/Redis：库表、状态、活动连接、只读查询、服务启停"
+dependencies = ["dbclient", "secretbox", "svcmgr", "compat"]
+provides = ["database"]
+entry = "main.py"

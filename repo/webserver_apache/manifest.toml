@@ -1,0 +1,9 @@
+[package]
+id = "webserver_apache"
+name = "Web Server Adapter (apache)"
+type = "tool"
+version = "1.0.0"
+description = "Apache httpd 适配器：vhost 渲染 + Debian/RHEL 布局 + -t/graceful；ssl 暂未实现如实声明"
+dependencies = ["probe", "procs"]
+provides = ["webserver_apache"]
+entry = "main.py"

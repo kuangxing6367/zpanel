@@ -1,0 +1,9 @@
+[package]
+id = "scheduler"
+name = "计划任务"
+type = "plugin"
+version = "0.1.0"
+description = "管理系统自己的计划任务（POSIX crontab / Windows schtasks）；表达式校验与下次触发时间交给 cron 机制包，命令执行交给 procs"
+dependencies = ["cron", "procs"]
+provides = ["scheduler"]
+entry = "main.py"

@@ -1,0 +1,12 @@
+# 端到端演示包：cron —— cron 表达式解析与计算（纯逻辑机制包）
+# 定位：多机/任务场景下插件声明 dependencies = ["cron"] 即可按需加载。
+[package]
+id = "cron"
+name = "Cron Expression Tool"
+type = "tool"
+version = "1.0.0"
+description = "cron 表达式解析/匹配/下次触发时间计算（纯 stdlib）"
+dependencies = []
+provides = ["cron"]
+entry = "main.py"
+api_version = ">=1"

@@ -1,0 +1,9 @@
+[package]
+id = "fileops"
+name = "File Ops"
+type = "tool"
+version = "1.1.0"
+description = "文件系统原语：列目录/读写/尾部读取/新建/改名/删除/复制移动/打包/摘要/磁盘用量（不含路径边界，边界归 sandbox；字节解码归 procs）"
+dependencies = ["hashcode", "procs"]
+provides = ["fileops"]
+entry = "main.py"

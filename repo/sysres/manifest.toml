@@ -1,0 +1,9 @@
+[package]
+id = "sysres"
+name = "System Resources"
+type = "tool"
+version = "1.0.0"
+description = "系统资源读取：CPU/内存/交换/磁盘/网络/负载/进程 TOP，psutil 优先、stdlib 兜底"
+dependencies = []
+provides = ["sysres"]
+entry = "main.py"

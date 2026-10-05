@@ -1,0 +1,9 @@
+[package]
+id = "secretbox"
+name = "Secret Box"
+type = "tool"
+version = "1.0.0"
+description = "可逆加密（Encrypt-then-MAC）：保管必须取回明文的凭据，如数据库口令、API Key"
+dependencies = []
+provides = ["secretbox"]
+entry = "main.py"

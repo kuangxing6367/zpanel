@@ -1,0 +1,9 @@
+[package]
+id = "procs"
+name = "Process Control"
+type = "tool"
+version = "1.0.0"
+description = "进程管控：跨平台 Popen 工厂（进程组/新会话）、超时杀进程树、输出截断、编码自适配"
+dependencies = []
+provides = ["procs"]
+entry = "main.py"

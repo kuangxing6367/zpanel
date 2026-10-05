@@ -1,0 +1,9 @@
+[package]
+id = "lock"
+name = "Lock"
+type = "tool"
+version = "1.0.0"
+description = "互斥锁抽象（进程内命名锁单例 + 跨进程文件锁，context manager 两用），防并发写坏数据"
+dependencies = []
+provides = ["lock"]
+entry = "main.py"

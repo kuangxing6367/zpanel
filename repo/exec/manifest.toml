@@ -1,0 +1,9 @@
+[package]
+id = "exec"
+name = "Exec Tool"
+type = "tool"
+version = "1.0.0"
+description = "通用命令执行接口（标准库 subprocess，零第三方依赖）"
+dependencies = []
+provides = ["exec"]
+entry = "main.py"

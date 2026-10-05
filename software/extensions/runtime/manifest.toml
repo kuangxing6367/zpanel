@@ -1,0 +1,9 @@
+[package]
+id = "runtime"
+name = "运行时管理"
+type = "plugin"
+version = "0.3.0"
+description = "运行时探测与应用实例托管：PHP/Node/Java/Python 的实例化启停、输出流、崩溃自愈；探测走 probe、进程管控走 procs、版本差异走 compat"
+dependencies = ["probe", "procs", "compat"]
+provides = ["runtime"]
+entry = "main.py"

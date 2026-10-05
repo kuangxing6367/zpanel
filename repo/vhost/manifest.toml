@@ -1,0 +1,9 @@
+[package]
+id = "vhost"
+name = "Virtual Host Server"
+type = "tool"
+version = "1.0.0"
+description = "内置虚拟主机服务：Host 路由（含通配）、安全静态托管、反向代理 —— 零第三方依赖的预览/兜底后端"
+dependencies = ["sandbox"]
+provides = ["vhost"]
+entry = "main.py"

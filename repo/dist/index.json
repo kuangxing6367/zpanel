@@ -1,0 +1,474 @@
+{
+  "generated_by": "zeronus-repo-build",
+  "packages": [
+    {
+      "id": "cache",
+      "name": "Cache",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "TTL + LRU 内存缓存（惰性过期、线程安全），下游不再各自手搓 dict 过期",
+      "dependencies": [],
+      "provides": [
+        "cache"
+      ],
+      "entry": "main.py",
+      "url": "pool/cache-1.0.0.tar.gz",
+      "sha256": "0465719bbb7b85ed09d3f1808b595ef8f9a880d4c4cac08e4d8d2108a03eaa10"
+    },
+    {
+      "id": "compat",
+      "name": "Version Compat Layer",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "版本兼容层：一个版本 = 一份配方声明（配置位置/服务名/校验命令/语法能力/SQL 档案），上层只问 resolve(family, version)，新增版本不改操作代码",
+      "dependencies": [],
+      "provides": [
+        "compat"
+      ],
+      "entry": "main.py",
+      "url": "pool/compat-1.0.0.tar.gz",
+      "sha256": "d3ec57347f2edad0e679b467072e8d13e9a2401a5c457b875db08f089bb705b2"
+    },
+    {
+      "id": "cron",
+      "name": "Cron Expression Tool",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "cron 表达式解析/匹配/下次触发时间计算（纯 stdlib）",
+      "dependencies": [],
+      "provides": [
+        "cron"
+      ],
+      "entry": "main.py",
+      "url": "pool/cron-1.0.0.tar.gz",
+      "sha256": "045a43d8e584e4938f1eea21a8a01061a59dfa1dd987bd4c1ee5d376f16d1797"
+    },
+    {
+      "id": "dbclient",
+      "name": "Database Client",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "数据库客户端调用：凭据不进命令行（MySQL 用临时选项文件 / PG 与 Redis 用环境变量），结果解析为行字典",
+      "dependencies": [
+        "procs"
+      ],
+      "provides": [
+        "dbclient"
+      ],
+      "entry": "main.py",
+      "url": "pool/dbclient-1.0.0.tar.gz",
+      "sha256": "36e051aeb3de8b7e839bf1f2e00db9dc09ae9c61c3965f7c2def45fd62725f28"
+    },
+    {
+      "id": "exec",
+      "name": "Exec Tool",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "通用命令执行接口（标准库 subprocess，零第三方依赖）",
+      "dependencies": [],
+      "provides": [
+        "exec"
+      ],
+      "entry": "main.py",
+      "url": "pool/exec-1.0.0.tar.gz",
+      "sha256": "c447cbdd12d1eeb1b279c8d3f710e5129c2913525361375b46336d50e65dbdf2"
+    },
+    {
+      "id": "fileops",
+      "name": "File Ops",
+      "type": "tool",
+      "version": "1.1.0",
+      "description": "文件系统原语：列目录/读写/尾部读取/新建/改名/删除/复制移动/打包/摘要/磁盘用量（不含路径边界，边界归 sandbox；字节解码归 procs）",
+      "dependencies": [
+        "hashcode",
+        "procs"
+      ],
+      "provides": [
+        "fileops"
+      ],
+      "entry": "main.py",
+      "url": "pool/fileops-1.1.0.tar.gz",
+      "sha256": "1c15fd9ce6ee9c82dfc74b6c7b922539f0b7c23aecde53131c9f115e4bada15f"
+    },
+    {
+      "id": "hashcode",
+      "name": "Hash & Codec",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "哈希摘要（sha256/sha1/md5）+ 编解码（base64/hex/url）+ 短 ID / UUID",
+      "dependencies": [],
+      "provides": [
+        "hashcode"
+      ],
+      "entry": "main.py",
+      "url": "pool/hashcode-1.0.0.tar.gz",
+      "sha256": "f9ef393898723f6f347a0c907fa13a10f3f12663a03627393ee7a6cd62ce194e"
+    },
+    {
+      "id": "http",
+      "name": "HTTP Client",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "统一 HTTP 客户端（urllib 封装：JSON 编解码/超时/大小上限/统一结果对象），插件调外部 API 不再各自手搓",
+      "dependencies": [],
+      "provides": [
+        "http"
+      ],
+      "entry": "main.py",
+      "url": "pool/http-1.0.0.tar.gz",
+      "sha256": "f3bbbc984c14b9b5c8ef671a358f5cef786635a80337746b681a19339f8c0a41"
+    },
+    {
+      "id": "lock",
+      "name": "Lock",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "互斥锁抽象（进程内命名锁单例 + 跨进程文件锁，context manager 两用），防并发写坏数据",
+      "dependencies": [],
+      "provides": [
+        "lock"
+      ],
+      "entry": "main.py",
+      "url": "pool/lock-1.0.0.tar.gz",
+      "sha256": "81943dcaba000aba5b6fbb598ae19cb6e57f1a76e14d625eff75be8bbb842719"
+    },
+    {
+      "id": "mailer",
+      "name": "Mailer",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "SMTP 发信（纯标准库）：SSL/STARTTLS/明文、多收件人、文本+HTML；配置由调用方传入，本包不碰存储",
+      "dependencies": [],
+      "provides": [
+        "mailer"
+      ],
+      "entry": "main.py",
+      "url": "pool/mailer-1.0.0.tar.gz",
+      "sha256": "efe2208f03f6cadc3bf4d231bfb31c4d927450890fb17c298aad19f729422334"
+    },
+    {
+      "id": "ngxconf",
+      "name": "Nginx Config",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "Nginx 配置渲染与重载：server 块模板（静态/PHP/反代/SSL）、托管文件落盘与清理、nginx -t / -s reload",
+      "dependencies": [
+        "lock",
+        "procs"
+      ],
+      "provides": [
+        "ngxconf"
+      ],
+      "entry": "main.py",
+      "url": "pool/ngxconf-1.0.0.tar.gz",
+      "sha256": "2fb7aed1ffd1e038c012b6cd83bafe9209ab2a33ac1717588938f0a897f27514"
+    },
+    {
+      "id": "pathsafe",
+      "name": "Safe Path",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "安全路径拼接（防目录穿越），用户可控路径的标配校验",
+      "dependencies": [],
+      "provides": [
+        "pathsafe"
+      ],
+      "entry": "main.py",
+      "url": "pool/pathsafe-1.0.0.tar.gz",
+      "sha256": "988d88f4cc0b960edbf70e516c649806e05326ed9ddc0a53bce33b1e6bebe506"
+    },
+    {
+      "id": "pkg",
+      "name": "Package Manager Facade",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "包管理器门面：挑实现+委派，家族差异在 pkg_* 实现包（deb/rpm/pacman/apk/win）",
+      "dependencies": [
+        "pkg_apt",
+        "pkg_rpm",
+        "pkg_pacman",
+        "pkg_apk",
+        "pkg_win"
+      ],
+      "provides": [
+        "pkg"
+      ],
+      "entry": "main.py",
+      "url": "pool/pkg-1.0.0.tar.gz",
+      "sha256": "04b07a16c8126a1a0d2f3e93bf5168440efc6888eebeb4b36baa4e2229d85543"
+    },
+    {
+      "id": "pkg_apk",
+      "name": "Package Manager (apk)",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "Alpine 家族：apk",
+      "dependencies": [
+        "procs"
+      ],
+      "provides": [
+        "pkg_apk"
+      ],
+      "entry": "main.py",
+      "url": "pool/pkg_apk-1.0.0.tar.gz",
+      "sha256": "7f412b99a7603969ea0e2fb06693160a44d9d9be66ab68a61084a3b6d6b89d0f"
+    },
+    {
+      "id": "pkg_apt",
+      "name": "Package Manager (apt)",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "Debian/Ubuntu/Armbian 家族：apt-get+dpkg，deb822 源格式兼容，dpkg 锁检测",
+      "dependencies": [
+        "procs"
+      ],
+      "provides": [
+        "pkg_apt"
+      ],
+      "entry": "main.py",
+      "url": "pool/pkg_apt-1.0.0.tar.gz",
+      "sha256": "14cfafdcacc2309b748e0f31b11628963bc463b1734f8246339a86cf40d51846"
+    },
+    {
+      "id": "pkg_pacman",
+      "name": "Package Manager (pacman)",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "Arch/Manjaro 家族：pacman，db.lck 锁检测",
+      "dependencies": [
+        "procs"
+      ],
+      "provides": [
+        "pkg_pacman"
+      ],
+      "entry": "main.py",
+      "url": "pool/pkg_pacman-1.0.0.tar.gz",
+      "sha256": "21c6881f2c1dd81e1f11170b5146fb163d2cd20775d0654c6d1772bffea62fb6"
+    },
+    {
+      "id": "pkg_rpm",
+      "name": "Package Manager (rpm)",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "RPM 家族：dnf5/dnf/yum/zypper+rpm，覆盖 RHEL/CentOS/Fedora/Anolis/TencentOS/openSUSE",
+      "dependencies": [
+        "procs"
+      ],
+      "provides": [
+        "pkg_rpm"
+      ],
+      "entry": "main.py",
+      "url": "pool/pkg_rpm-1.0.0.tar.gz",
+      "sha256": "ceda349e87f14a5aca845d45be65fb4429aac8089883fbbea8439a436b56c9ed"
+    },
+    {
+      "id": "pkg_win",
+      "name": "Package Manager (win)",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "Windows 家族：winget/choco 探测；Server 2012 无 winget 如实声明不可用",
+      "dependencies": [
+        "procs"
+      ],
+      "provides": [
+        "pkg_win"
+      ],
+      "entry": "main.py",
+      "url": "pool/pkg_win-1.0.0.tar.gz",
+      "sha256": "d844961bc5182a6e1594c12ce539628d54e18681c4fe23e677c993420c90b6af"
+    },
+    {
+      "id": "probe",
+      "name": "Executable Probe",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "可执行文件发现与版本探测：多候选名搜索、额外目录、输出取版本号、结果带 TTL 缓存",
+      "dependencies": [
+        "cache",
+        "procs"
+      ],
+      "provides": [
+        "probe"
+      ],
+      "entry": "main.py",
+      "url": "pool/probe-1.0.0.tar.gz",
+      "sha256": "cb03ef9f63b78416e8fbceb744fcc857ea196f97d17d00eada41fe578a70844f"
+    },
+    {
+      "id": "procs",
+      "name": "Process Control",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "进程管控：跨平台 Popen 工厂（进程组/新会话）、超时杀进程树、输出截断、编码自适配",
+      "dependencies": [],
+      "provides": [
+        "procs"
+      ],
+      "entry": "main.py",
+      "url": "pool/procs-1.0.0.tar.gz",
+      "sha256": "b7a1028dc07bcee214692b9b21e75f527f862124f952fc6898bb12968caf989e"
+    },
+    {
+      "id": "sandbox",
+      "name": "Path Sandbox",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "受控路径沙箱：realpath 白名单校验，软链/junction 指向外部同样被拒（用户可控路径的标配）",
+      "dependencies": [
+        "pathsafe"
+      ],
+      "provides": [
+        "sandbox"
+      ],
+      "entry": "main.py",
+      "url": "pool/sandbox-1.0.0.tar.gz",
+      "sha256": "d2931c5e0a8c4e3b2a3db113d20af0217962de670376d9a073394fbb4fca28ab"
+    },
+    {
+      "id": "secretbox",
+      "name": "Secret Box",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "可逆加密（Encrypt-then-MAC）：保管必须取回明文的凭据，如数据库口令、API Key",
+      "dependencies": [],
+      "provides": [
+        "secretbox"
+      ],
+      "entry": "main.py",
+      "url": "pool/secretbox-1.0.0.tar.gz",
+      "sha256": "fcf09ee0787a6fad2cf781e2dbaa0937ecec2c463d6f4b1b22e4977785f4f3e4"
+    },
+    {
+      "id": "svcmgr",
+      "name": "Service Manager",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "系统服务管理门面：只做平台选择 + 委派，不含平台分支（实现在 svcmgr_win / svcmgr_nix）",
+      "dependencies": [
+        "procs",
+        "svcmgr_win",
+        "svcmgr_nix"
+      ],
+      "provides": [
+        "svcmgr"
+      ],
+      "entry": "main.py",
+      "url": "pool/svcmgr-1.0.0.tar.gz",
+      "sha256": "f3d2b5757a52e4c7711623c8c5902447a5ed86d693ea27fb13b967e5e1c93126"
+    },
+    {
+      "id": "svcmgr_nix",
+      "name": "Service Manager (Linux/macOS)",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "Linux/macOS 服务管理：systemd → SysV service → brew → launchctl",
+      "dependencies": [
+        "procs"
+      ],
+      "provides": [
+        "svcmgr_nix"
+      ],
+      "entry": "main.py",
+      "url": "pool/svcmgr_nix-1.0.0.tar.gz",
+      "sha256": "31f08407b28e670c815a1786c299cadd8990a6156eee040822f77c3ca897a6d4"
+    },
+    {
+      "id": "svcmgr_win",
+      "name": "Service Manager (Windows)",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "Windows 服务管理：sc.exe 启停查；已启/已停视为幂等成功；不代劳开机自启",
+      "dependencies": [
+        "procs"
+      ],
+      "provides": [
+        "svcmgr_win"
+      ],
+      "entry": "main.py",
+      "url": "pool/svcmgr_win-1.0.0.tar.gz",
+      "sha256": "220b59c88e74ed45dd73c01f124fcd817e644d4f64fd3767a72211a887f6c178"
+    },
+    {
+      "id": "sysres",
+      "name": "System Resources",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "系统资源读取：CPU/内存/交换/磁盘/网络/负载/进程 TOP，psutil 优先、stdlib 兜底",
+      "dependencies": [],
+      "provides": [
+        "sysres"
+      ],
+      "entry": "main.py",
+      "url": "pool/sysres-1.0.0.tar.gz",
+      "sha256": "1bb9056c705bd922d8b70f5e9318790fb6838971d691f1ac34039c43acfa301f"
+    },
+    {
+      "id": "vhost",
+      "name": "Virtual Host Server",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "内置虚拟主机服务：Host 路由（含通配）、安全静态托管、反向代理 —— 零第三方依赖的预览/兜底后端",
+      "dependencies": [
+        "sandbox"
+      ],
+      "provides": [
+        "vhost"
+      ],
+      "entry": "main.py",
+      "url": "pool/vhost-1.0.0.tar.gz",
+      "sha256": "401ab5940947a7419210c7fb63c7c81ae4b1f553a34227d0699217691c361c2b"
+    },
+    {
+      "id": "webserver",
+      "name": "Web Server Facade",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "Web 服务器适配器门面：建站顶层只面向契约，引擎差异在 webserver_* 实现包",
+      "dependencies": [
+        "webserver_nginx",
+        "webserver_apache"
+      ],
+      "provides": [
+        "webserver"
+      ],
+      "entry": "main.py",
+      "url": "pool/webserver-1.0.0.tar.gz",
+      "sha256": "9a86f7d915f76cf604df5098ff00633dd295b1c76672149b89cbd0adffd7aae1"
+    },
+    {
+      "id": "webserver_apache",
+      "name": "Web Server Adapter (apache)",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "Apache httpd 适配器：vhost 渲染 + Debian/RHEL 布局 + -t/graceful；ssl 暂未实现如实声明",
+      "dependencies": [
+        "probe",
+        "procs"
+      ],
+      "provides": [
+        "webserver_apache"
+      ],
+      "entry": "main.py",
+      "url": "pool/webserver_apache-1.0.0.tar.gz",
+      "sha256": "12b610abb3890c67b3dc52877a41d1490b76c3eb4f2ee2809b65e440eabd29e5"
+    },
+    {
+      "id": "webserver_nginx",
+      "name": "Web Server Adapter (nginx)",
+      "type": "tool",
+      "version": "1.0.0",
+      "description": "Nginx 适配器：渲染/落盘/清理委托 ngxconf（nginx 配置实现只此一份）",
+      "dependencies": [
+        "ngxconf",
+        "probe",
+        "procs"
+      ],
+      "provides": [
+        "webserver_nginx"
+      ],
+      "entry": "main.py",
+      "url": "pool/webserver_nginx-1.0.0.tar.gz",
+      "sha256": "97b720f90444414b788bff01ccdd208690d8fa569c1c6340543c21bf5095e102"
+    }
+  ]
+}

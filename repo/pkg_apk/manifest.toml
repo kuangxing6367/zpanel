@@ -1,0 +1,9 @@
+[package]
+id = "pkg_apk"
+name = "Package Manager (apk)"
+type = "tool"
+version = "1.0.0"
+description = "Alpine 家族：apk"
+dependencies = ["procs"]
+provides = ["pkg_apk"]
+entry = "main.py"

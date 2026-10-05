@@ -1,0 +1,9 @@
+[package]
+id = "alerts"
+name = "告警"
+type = "plugin"
+version = "0.2.0"
+description = "阈值规则（CPU/内存/磁盘/负载/证书到期）+ 多通道通知（SMTP 邮件/Webhook，含 Bearer），防抖后落事件与投递记录"
+dependencies = ["sysres", "mailer"]
+provides = ["alerts"]
+entry = "main.py"

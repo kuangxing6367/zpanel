@@ -1,0 +1,9 @@
+[package]
+id = "firewall"
+name = "防火墙管理"
+type = "plugin"
+version = "0.1.0"
+description = "管系统防火墙：状态/开关/规则列表/按端口放行（netsh · ufw · firewalld · iptables）"
+dependencies = ["procs", "probe"]
+provides = ["firewall"]
+entry = "main.py"

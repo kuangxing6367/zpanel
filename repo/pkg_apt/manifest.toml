@@ -1,0 +1,9 @@
+[package]
+id = "pkg_apt"
+name = "Package Manager (apt)"
+type = "tool"
+version = "1.0.0"
+description = "Debian/Ubuntu/Armbian 家族：apt-get+dpkg，deb822 源格式兼容，dpkg 锁检测"
+dependencies = ["procs"]
+provides = ["pkg_apt"]
+entry = "main.py"

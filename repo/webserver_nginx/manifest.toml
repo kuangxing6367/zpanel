@@ -1,0 +1,9 @@
+[package]
+id = "webserver_nginx"
+name = "Web Server Adapter (nginx)"
+type = "tool"
+version = "1.0.0"
+description = "Nginx 适配器：渲染/落盘/清理委托 ngxconf（nginx 配置实现只此一份）"
+dependencies = ["ngxconf", "probe", "procs"]
+provides = ["webserver_nginx"]
+entry = "main.py"

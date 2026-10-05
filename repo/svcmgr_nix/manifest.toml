@@ -1,0 +1,9 @@
+[package]
+id = "svcmgr_nix"
+name = "Service Manager (Linux/macOS)"
+type = "tool"
+version = "1.0.0"
+description = "Linux/macOS 服务管理：systemd → SysV service → brew → launchctl"
+dependencies = ["procs"]
+provides = ["svcmgr_nix"]
+entry = "main.py"

@@ -1,0 +1,9 @@
+[package]
+id = "monitor"
+name = "系统监控"
+type = "plugin"
+version = "0.1.0"
+description = "主机资源总览：CPU/内存/交换/磁盘/网络/负载/进程 TOP，数据取自 sysres 机制包"
+dependencies = ["sysres"]
+provides = ["monitor"]
+entry = "main.py"

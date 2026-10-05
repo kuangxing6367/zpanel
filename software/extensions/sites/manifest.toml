@@ -1,0 +1,9 @@
+[package]
+id = "sites"
+name = "站点托管"
+type = "plugin"
+version = "0.2.0"
+description = "站点（域名 + 根目录 + 静态/PHP/反代）：渲染并下发 Nginx 配置（ngxconf），可选内置虚拟主机兜底（vhost），上游健康探测走 http"
+dependencies = ["ngxconf", "vhost", "probe", "http", "webserver"]
+provides = ["sites"]
+entry = "main.py"

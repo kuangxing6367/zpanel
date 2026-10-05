@@ -1,0 +1,9 @@
+[package]
+id = "pathsafe"
+name = "Safe Path"
+type = "tool"
+version = "1.0.0"
+description = "安全路径拼接（防目录穿越），用户可控路径的标配校验"
+dependencies = []
+provides = ["pathsafe"]
+entry = "main.py"

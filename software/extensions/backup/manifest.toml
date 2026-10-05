@@ -1,0 +1,9 @@
+[package]
+id = "backup"
+name = "备份"
+type = "plugin"
+version = "0.1.0"
+description = "把站点/实例/配置目录打包成 zip，保留最近 N 份；任务持久化 SQLite"
+dependencies = ["sandbox", "fileops"]
+provides = ["backup"]
+entry = "main.py"

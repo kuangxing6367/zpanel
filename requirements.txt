@@ -1,0 +1,26 @@
+# ============================================================
+# ZER NUS 依赖（三层架构，内核极简）
+# 内核（core/）仅硬依赖 PyYAML；其余均为软件级扩展（software/extensions）运行时使用。
+# ============================================================
+
+# 内核硬依赖
+pyyaml>=6.0
+
+# 软件级 Web 管理后台（software/extensions/webui，默认启用）
+flask>=2.3.0
+flask-cors>=4.0.0
+waitress>=3.0.0              # 生产级 Web 服务器（Web UI 默认使用）
+websockets>=12.0             # WebSocket 事件推送
+requests>=2.28.0             # 部分扩展内部 HTTP（终端 update 已改用标准库）
+ariadne>=0.23.0              # Web 后台 GraphQL API 域（/api/graphql）；缺失时该域自动跳过
+bcrypt>=4.0.0                # 可选：仅验证遗留 bcrypt 哈希；新密码用 hashlib.pbkdf2
+
+# 可选依赖（仅插件/监控需要，框架本体不强制）
+psutil>=5.9.0                # 看门狗内存监控（缺失时自动降级）
+Pillow>=10.0.0               # 图片渲染类插件
+numpy>=1.24.0                # 数值计算类插件
+httpx>=0.27.0                # 异步 HTTP 类插件
+
+# MySQL / PostgreSQL 可选驱动（使用对应数据库时需自行安装，框架不做静默安装）
+# pymysql>=1.0.0             # MySQL（运行时缺失会明确报错并提示安装命令）
+# psycopg2-binary>=2.9.0     # PostgreSQL（注意：连接尚未实现，见 docs/database.md）

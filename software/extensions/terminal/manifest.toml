@@ -1,0 +1,9 @@
+[package]
+id = "terminal"
+name = "在线终端"
+type = "plugin"
+version = "0.2.0"
+description = "命令模式终端（非 PTY）：限时执行、整树终止、输出截断、cd 托管、历史回看；执行走 procs 机制包"
+dependencies = ["procs"]
+provides = ["terminal"]
+entry = "main.py"

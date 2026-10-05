@@ -1,0 +1,9 @@
+[package]
+id = "pkg"
+name = "Package Manager Facade"
+type = "tool"
+version = "1.0.0"
+description = "包管理器门面：挑实现+委派，家族差异在 pkg_* 实现包（deb/rpm/pacman/apk/win）"
+dependencies = ["pkg_apt", "pkg_rpm", "pkg_pacman", "pkg_apk", "pkg_win"]
+provides = ["pkg"]
+entry = "main.py"

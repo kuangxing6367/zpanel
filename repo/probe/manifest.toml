@@ -1,0 +1,9 @@
+[package]
+id = "probe"
+name = "Executable Probe"
+type = "tool"
+version = "1.0.0"
+description = "可执行文件发现与版本探测：多候选名搜索、额外目录、输出取版本号、结果带 TTL 缓存"
+dependencies = ["cache", "procs"]
+provides = ["probe"]
+entry = "main.py"

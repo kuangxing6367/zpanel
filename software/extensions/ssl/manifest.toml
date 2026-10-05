@@ -1,0 +1,9 @@
+[package]
+id = "ssl"
+name = "SSL证书"
+type = "plugin"
+version = "0.1.0"
+description = "证书到期巡检（本地 PEM + 远端直连）与自签证书生成（openssl）；不做 ACME"
+dependencies = ["sandbox", "fileops"]
+provides = ["ssl"]
+entry = "main.py"

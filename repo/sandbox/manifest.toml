@@ -1,0 +1,9 @@
+[package]
+id = "sandbox"
+name = "Path Sandbox"
+type = "tool"
+version = "1.0.0"
+description = "受控路径沙箱：realpath 白名单校验，软链/junction 指向外部同样被拒（用户可控路径的标配）"
+dependencies = ["pathsafe"]
+provides = ["sandbox"]
+entry = "main.py"

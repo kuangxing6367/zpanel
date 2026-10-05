@@ -1,0 +1,9 @@
+[package]
+id = "dbclient"
+name = "Database Client"
+type = "tool"
+version = "1.0.0"
+description = "数据库客户端调用：凭据不进命令行（MySQL 用临时选项文件 / PG 与 Redis 用环境变量），结果解析为行字典"
+dependencies = ["procs"]
+provides = ["dbclient"]
+entry = "main.py"
