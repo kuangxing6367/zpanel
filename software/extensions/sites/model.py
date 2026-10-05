@@ -151,15 +151,36 @@ class Site:
         return d
 
 
+_DOMAIN_RE = None     # 惰性编译
+
+
+def _valid_domain(d: str) -> bool:
+    """域名合法性：字母数字-._ 与可选通配前缀，拒绝空格/分号/引号/$ 等一切
+    能在 nginx server_name 里注入指令的字符（'a.com; alias /;' 曾能直接进 conf）。"""
+    global _DOMAIN_RE
+    if _DOMAIN_RE is None:
+        import re
+        _DOMAIN_RE = re.compile(
+            r'^(\*\.)?[a-zA-Z0-9]([a-zA-Z0-9._-]{0,251}[a-zA-Z0-9])?(:[0-9]{1,5})?$')
+    return bool(_DOMAIN_RE.match(d))
+
+
 def _as_list(v) -> list:
+    """归一 + **校验**：非法域名直接抛 ValueError（创建/更新接口转 400），
+    绝不让注入字符进渲染层。"""
     if v is None:
         return []
     if isinstance(v, str):
         parts = [p.strip() for p in v.replace(';', ',').replace('\n', ',').split(',')]
-        return [p for p in parts if p]
-    if isinstance(v, (list, tuple, set)):
-        return [str(x).strip() for x in v if str(x).strip()]
-    return [str(v)]
+        out = [p for p in parts if p]
+    elif isinstance(v, (list, tuple, set)):
+        out = [str(x).strip() for x in v if str(x).strip()]
+    else:
+        out = [str(v)]
+    bad = [d for d in out if not _valid_domain(d)]
+    if bad:
+        raise ValueError('非法域名（只允许 字母/数字/-. 和可选 *. 通配）: ' + bad[0])
+    return out
 
 
 def _now() -> str:

@@ -560,10 +560,10 @@ def restore(conn: dict, path: str, database: str = '', timeout: float = 600.0) -
                     '-h', c['host'], '-P', str(c['port']), db] if db else \
                    [exe, f"--defaults-extra-file={os.path.join(tmpdir, 'client.cnf')}",
                     '-h', c['host'], '-P', str(c['port'])]
-            # 导入必须走 stdin 重定向：交给 shell（路径已由调用方保证是本机文件）
-            argv = ' '.join(f'"{a}"' for a in argv) + f' < "{path}"'
-        r = pr.run(argv, timeout=timeout, env=env,
-                   shell=isinstance(argv, str), max_output=64 * 1024)
+        # 导入喂 stdin（文件句柄直传）—— 不再拼 shell 字符串（路径含引号即可注入）
+        with open(path, 'rb') as fh:
+            r = pr.run(argv, timeout=timeout, env=env, shell=False,
+                       max_output=64 * 1024, stdin=fh)
         ok = r.returncode == 0 and not r.timed_out
         return {'ok': ok, 'path': path, 'database': db,
                 'error': '' if ok else ((r.stderr or '').strip() or f'退出码 {r.returncode}')}

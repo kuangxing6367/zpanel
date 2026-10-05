@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import logging
+import shutil
 import os
 import sys
 import threading
@@ -429,6 +430,70 @@ class SiteSubsystem:
             logger.warning("[sites] %s reload 失败: %s",
                            active['id'], str(res.get('output'))[:300])
         return res
+
+    def adopt_scan(self) -> dict:
+        """收养扫描：解析 nginx -T 全量配置，列出每台机器上**真实存在**的 server 块。
+
+        只读不改任何文件 —— 「收养」（接管配置生成）是显式的第二步。
+        managed=True 表示该 conf 在面板托管目录里（本来就是面板建的）。
+        """
+        ws = self._ws()
+        if ws is None:
+            return {'ok': False, 'error': 'webserver 机制包未加载'}
+        import subprocess as _sp
+        exe = shutil.which('nginx', path='/usr/sbin:/usr/local/nginx/sbin')
+        if not exe:
+            return {'ok': False, 'error': 'nginx 未安装'}
+        r = _sp.run([exe, '-T'], capture_output=True, timeout=30)
+        text = (r.stdout or b'').decode('utf-8', 'replace')
+        if r.returncode != 0:
+            return {'ok': False, 'error': 'nginx -T 失败: ' + (r.stderr or b'').decode('utf-8', 'replace')[:300]}
+        items = []
+        # nginx -T 会在每段配置前打 "# configuration file <path>:"，据此知道 conf 归属
+        parts = text.split('# configuration file ')
+        for part in parts[1:]:
+            if ':' not in part:
+                continue
+            conf_path, body = part.split(':', 1)
+            conf_path = conf_path.strip()
+            # 按大括号配对切 server 块（location 有嵌套，不能用正则硬切）
+            idx = body.find('server')
+            while idx != -1:
+                depth, i, start = 0, idx, -1
+                while i < len(body):
+                    if body[i] == '{':
+                        depth += 1
+                        if depth == 1:
+                            start = i + 1
+                    elif body[i] == '}':
+                        depth -= 1
+                        if depth == 0:
+                            block = body[start:i]
+                            if 'server_name' in block and 'listen' in block:
+                                names = []
+                                for ln in block.splitlines():
+                                    ln = ln.strip()
+                                    if ln.startswith('server_name'):
+                                        names += ln.split(None, 1)[1].rstrip(';').split()
+                                root = ''
+                                proxy = ''
+                                for ln in block.splitlines():
+                                    ln = ln.strip()
+                                    if ln.startswith('root ') and not root:
+                                        root = ln.split(None, 1)[1].rstrip(';').strip('"')
+                                    if ln.startswith('proxy_pass') and not proxy:
+                                        proxy = ln.split(None, 1)[1].rstrip(';').strip()
+                                items.append({
+                                    'domains': names[:8], 'root': root, 'proxy': proxy,
+                                    'conf': conf_path,
+                                    'managed': conf_path.startswith(self.conf_dir),
+                                    'ssl': 'ssl_certificate' in block,
+                                })
+                            break
+                    i += 1
+                idx = body.find('server', i)
+        return {'ok': True, 'items': items, 'count': len(items),
+                'managed': sum(1 for x in items if x['managed'])}
 
     def snapshot(self) -> dict:
         sel = self.webserver_select()

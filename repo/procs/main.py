@@ -172,16 +172,21 @@ def _clip(data: str, limit: int):
 
 
 def run(cmd, *, cwd=None, timeout: float = 30.0, env=None, shell: bool = False,
-        max_output: int = DEFAULT_MAX_OUTPUT, encoding: str | None = None):
+        max_output: int = DEFAULT_MAX_OUTPUT, encoding: str | None = None,
+        stdin=None):
     """执行命令并等待结束，返回 ProcResult（超时不抛异常，标记 timed_out）。
 
     走**字节管道**而非文本模式：拿到原始字节后再交给 decode_bytes() 判别编码，
     这样同一台机器上 GBK 的 ``dir`` 与 UTF-8 的 ``node`` 都不会变乱码。
+
+    stdin：传入可读对象（如打开的文件）即作为子进程标准输入 ——
+    导入 SQL 这类「喂文件」的场景用它，**代替 shell 的 < 重定向**
+    （拼接 shell 字符串是注入的老巢）。
     """
     t0 = time.perf_counter()
     try:
         proc = subprocess.Popen(cmd, cwd=cwd, env=env, shell=shell,
-                                stdin=subprocess.DEVNULL,
+                                stdin=stdin if stdin is not None else subprocess.DEVNULL,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 **_spawn_flags())
     except OSError as e:

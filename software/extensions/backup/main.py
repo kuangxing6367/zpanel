@@ -27,6 +27,20 @@ __plugin_meta__ = {
 }
 
 _svc = None
+_cloud = None
+
+
+def _cloud():
+    """按文件路径加载 cloud.py（zkg 装载扩展没有包上下文，不能用相对导入）。"""
+    global _cloud
+    if _cloud is None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            'backup_cloud', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cloud.py'))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _cloud = mod
+    return _cloud
 
 
 def _default_roots() -> list:
@@ -41,7 +55,8 @@ def _default_roots() -> list:
 class BackupService:
     """备份任务管理。"""
 
-    def __init__(self, fw, log=None, sandbox=None, roots=None, fileops=None):
+    def __init__(self, fw, log=None, sandbox=None, roots=None, fileops=None,
+                 secretbox=None):
         if sandbox is None:
             raise RuntimeError("备份依赖 sandbox 机制包（检查 manifest.toml）")
         if fileops is None:
@@ -52,12 +67,38 @@ class BackupService:
         # sandbox 是机制包（模块）：据 roots 建沙箱实例（与 files 同策略）
         self.box = sandbox.Sandbox(roots or _default_roots())
         self.default_dir = self._default_dir()
+        # 云目标口令加密：与 database 扩展共用同一把 secretbox 主密钥
+        self.sb = secretbox
+        self.key = None
+        if self.sb is not None:
+            key_path = os.path.join(_project_root(), 'data', 'secretbox.key')
+            try:
+                if os.path.exists(key_path):
+                    with open(key_path, encoding='utf-8') as f:
+                        self.key = f.read().strip()
+                else:
+                    self.key = self.sb.new_key()
+                    with open(key_path, 'w', encoding='utf-8') as f:
+                        f.write(self.key)
+                    os.chmod(key_path, 0o600)
+            except Exception as e:
+                self._log(f"备份：secretbox 密钥不可用（{e}），云目标口令将无法加密")
+                self.key = None
+        self.ensure_cloud_table()
+        self.default_dir = self._default_dir()
         self.ensure_table()
 
     @staticmethod
     def _default_dir() -> str:
         return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.abspath(__file__))))), 'data', 'backups')
+
+    def ensure_cloud_table(self):
+        """云备份目标（WebDAV / S3 兼容）：口令经 secretbox 加密入库。"""
+        self.fw.db.execute(
+            "CREATE TABLE IF NOT EXISTS backup_targets ("
+            "id TEXT PRIMARY KEY, kind TEXT, name TEXT, endpoint TEXT, bucket TEXT, "
+            "path TEXT, username TEXT, password_enc TEXT, region TEXT, created_at REAL)")
 
     def ensure_table(self):
         self.fw.db.execute("""
@@ -144,6 +185,84 @@ class BackupService:
         self.fw.db.execute("DELETE FROM backup_jobs WHERE id=?", (jid,))
         return {'ok': True}
 
+    # ── 云目标 ──────────────────────────────────────────────
+    def targets(self) -> list:
+        rows = self.fw.db.query("SELECT id, kind, name, endpoint, bucket, path, "
+                                "username, created_at FROM backup_targets ORDER BY id") or []
+        return [dict(r) for r in rows]
+
+    def _target(self, tid):
+        return self.fw.db.query_one("SELECT * FROM backup_targets WHERE id=?", (tid,))
+
+    def target_add(self, data: dict) -> dict:
+        kind = str(data.get('kind') or '').lower()
+        if kind not in ('webdav', 's3'):
+            return {'ok': False, 'error': 'kind 只支持 webdav | s3'}
+        if not str(data.get('name') or '').strip() or not str(data.get('endpoint') or '').strip():
+            return {'ok': False, 'error': '名称与 endpoint 必填'}
+        tid = uuid.uuid4().hex[:16]
+        self.fw.db.execute(
+            "INSERT INTO backup_targets (id, kind, name, endpoint, bucket, path, "
+            "username, password_enc, region, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (tid, kind, data.get('name'), data.get('endpoint'), data.get('bucket') or '',
+             str(data.get('path') or '').strip('/'),
+             data.get('username') or '',
+             self.sb.seal(str(data.get('password') or ''), self.key)
+                 if (data.get('password') and self.sb) else '',
+             data.get('region') or 'us-east-1', time.time()))
+        return {'ok': True, 'id': tid}
+
+    def target_remove(self, tid: str) -> dict:
+        self.fw.db.execute("DELETE FROM backup_targets WHERE id=?", (tid,))
+        return {'ok': True}
+
+    def target_test(self, tid: str) -> dict:
+        '''连通测试：往目标传一个探针文件，WebDAV/S3 各自验证。'''
+        t = self._target(tid)
+        if not t:
+            return {'ok': False, 'error': '目标不存在'}
+        probe = os.path.join(self.default_dir, '.probe.txt')
+        with open(probe, 'w', encoding='utf-8') as f:
+            f.write(time.strftime('%F %T'))
+        pwd = self.sb.open(t['password_enc'], self.key) if t['password_enc'] and self.sb else ''
+        try:
+            if t['kind'] == 'webdav':
+                url = t['endpoint'].rstrip('/') + '/zpanel-probe.txt'
+                r = _cloud().webdav_put(url, probe, t['username'], pwd)
+            else:
+                r = _cloud().s3_put(t['endpoint'], t['bucket'] or 'zpanel',
+                                    (t['path'] + '/' if t['path'] else '') + 'zpanel-probe.txt',
+                                    probe, t['username'], pwd,
+                                    region=t['region'] or 'us-east-1')
+            return r
+        finally:
+            try:
+                os.remove(probe)
+            except OSError:
+                pass
+
+    def _upload_cloud(self, job, archive: str) -> list:
+        '''备份产物分发到任务绑定的云目标。失败逐个如实报告。'''
+        out = []
+        tid = job.get('target_id')
+        if not tid:
+            return out
+        t = self._target(tid)
+        if not t:
+            return [{'target': '?', 'ok': False, 'error': '目标已删除'}]
+        pwd = self.sb.open(t['password_enc'], self.key) if t['password_enc'] and self.sb else ''
+        name = os.path.basename(archive)
+        if t['kind'] == 'webdav':
+            url = t['endpoint'].rstrip('/') + '/' + name
+            r = _cloud().webdav_put(url, archive, t['username'], pwd)
+            out.append({'target': t['name'], **r})
+        else:
+            key = (t['path'] + '/' if t['path'] else '') + name
+            r = _cloud().s3_put(t['endpoint'], t['bucket'] or 'zpanel', key, archive,
+                                t['username'], pwd, region=t['region'] or 'us-east-1')
+            out.append({'target': t['name'], **r})
+        return out
+
     # ── 执行 ────────────────────────────────────────────────
     def run(self, jid: str) -> dict:
         job = self.get(jid)
@@ -200,9 +319,10 @@ def register(ctx):
     if fileops is None:
         ctx.log("备份：缺少 fileops 机制包，已跳过")
         return
+    secretbox = ctx.zkg_tool('secretbox')
     _roots = (fw.config.get('backup') or {}).get('roots') or _default_roots()
     _svc = BackupService(fw, log=ctx.log, sandbox=sandbox, roots=_roots,
-                         fileops=fileops)
+                         fileops=fileops, secretbox=secretbox)
     fw.backup_svc = _svc
     fw.services.register('backup', _svc)
 
@@ -218,6 +338,10 @@ def register(ctx):
         ('backup.update', lambda a: _ok(_svc.update((a or {}).get('id', ''), a or {})), '修改任务'),
         ('backup.remove', lambda a: _ok(_svc.remove((a or {}).get('id', ''))), '删除任务'),
         ('backup.run', lambda a: _ok(_svc.run((a or {}).get('id', ''))), '立即执行'),
+        ('backup.target.list', lambda a: _ok({'targets': _svc.targets()}), '云备份目标清单'),
+        ('backup.target.create', lambda a: _ok(_svc.target_add(a or {})), '新建云备份目标'),
+        ('backup.target.remove', lambda a: _ok(_svc.target_remove((a or {}).get('id', ''))), '删除云目标'),
+        ('backup.target.test', lambda a: _ok(_svc.target_test((a or {}).get('id', ''))), '云目标连通测试'),
     ):
         fw.nodes.register_handler(name, fn, desc=desc, level='software')
 
@@ -237,9 +361,28 @@ def register(ctx):
     ctx.register_api('/api/backup/<jid>/run', lambda jid: _job_resp(_svc.run(jid), 502),
                      methods=['POST'])
 
+    ctx.register_api('/api/backup/targets', lambda: jsonify(_ok({'targets': _svc.targets()})),
+                     methods=['GET'], description='云备份目标清单')
+    ctx.register_api('/api/backup/targets', lambda: _job_resp(_svc.target_add(_body()), 400),
+                     methods=['POST'], description='新建云备份目标')
+    ctx.register_api('/api/backup/targets/<tid>',
+                     lambda tid: jsonify(_svc.target_remove(tid)), methods=['DELETE'],
+                     description='删除云目标')
+    ctx.register_api('/api/backup/targets/<tid>/test',
+                     lambda tid: _job_resp(_svc.target_test(tid), 502), methods=['POST'],
+                     description='云目标连通测试')
+
     ctx.log(f"备份已就绪（{_svc.list()['count']} 个任务，默认目录 data/backups）")
 
 
 def unregister():
     global _svc
     _svc = None
+
+def _project_root() -> str:
+    try:
+        from core.kernel.paths import project_root
+        return project_root()
+    except Exception:
+        return os.getcwd()
+

@@ -42,9 +42,12 @@ class TaskQueue:
     :param max_history: 保留的已完成任务记录条数（防止无限增长）
     """
 
-    def __init__(self, workers: int = 4, max_history: int = 200):
+    def __init__(self, workers: int = 4, max_history: int = 200, on_finish=None):
         self._workers_n = max(1, int(workers or 4))
         self._max_history = max(10, int(max_history or 200))
+        # on_finish(record)：任务终态回调（done/failed/cancelled）——
+        # 引擎用它把任务历史落库，重启后任务中心仍有账可查
+        self._on_finish = on_finish
         self._queue = []
         self._cv = threading.Condition()
         self._tasks = {}       # task_id -> record（dict，含 Future）
@@ -246,6 +249,11 @@ class TaskQueue:
             logger.warning(f"任务 [{rec['name']}] 执行失败: {e}")
         finally:
             rec['finished_at'] = time.time()
+            try:
+                if self._on_finish is not None:
+                    self._on_finish(self._snapshot(rec))
+            except Exception as e:
+                logger.debug("[task] 历史落库失败: %s", e)
             self._trim()
 
     def _trim(self):

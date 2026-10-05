@@ -96,6 +96,7 @@ def register(ctx):
         ('sites.remove', _h_remove, '删除站点'),
         ('sites.status', _h_status, '站点后端状态'),
         ('sites.render', _h_render, '渲染 Nginx 配置'),
+        ('sites.adopt.scan', lambda a: _ok(_subsystem.adopt_scan()), '收养扫描（现存 server 块清单）'),
         ('sites.php-versions', _h_php_versions, '本机 PHP 版本清单'),
     ):
         fw.nodes.register_handler(name, fn, desc=desc, level='software')

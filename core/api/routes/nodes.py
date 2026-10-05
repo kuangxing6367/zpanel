@@ -8,6 +8,8 @@ import logging
 
 from flask import request
 
+from ..app import READONLY_CMDS
+
 logger = logging.getLogger('zernus')
 
 
@@ -33,7 +35,7 @@ def register(app, ctx):
         return ctx.ok({'nodes': fw.nodes.snapshot()})
 
     @app.route('/api/nodes', methods=['POST'])
-    @ctx.require_auth
+    @ctx.require_auth(role='super')
     def _add_node():
         """纳管节点；响应中的 secret 仅此一次返回，请立即保存到被管机器。"""
         data = request.get_json(silent=True) or {}
@@ -48,7 +50,7 @@ def register(app, ctx):
         return ctx.ok(res)
 
     @app.route('/api/nodes/<name>', methods=['PATCH'])
-    @ctx.require_auth
+    @ctx.require_auth(role='super')
     def _update_node(name):
         data = request.get_json(silent=True) or {}
         res = fw.nodes.update(name, **{k: data.get(k) for k in ('host', 'port', 'tags')
@@ -59,13 +61,13 @@ def register(app, ctx):
         return ctx.ok(res)
 
     @app.route('/api/nodes/<name>', methods=['DELETE'])
-    @ctx.require_auth
+    @ctx.require_auth(role='super')
     def _remove_node(name):
         ctx.audit('node.remove', 'node', name)
         return ctx.ok(fw.nodes.remove(name))
 
     @app.route('/api/nodes/<name>/secret', methods=['POST'])
-    @ctx.require_auth
+    @ctx.require_auth(role='super')
     def _rotate_secret(name):
         """轮换 pre-shared key；旧密钥立即失效，节点需同步更新配置。"""
         res = fw.nodes.rotate_secret(name)
@@ -77,14 +79,23 @@ def register(app, ctx):
     @app.route('/api/nodes/<name>/cmd', methods=['POST'])
     @ctx.require_auth
     def _send_cmd(name):
-        """下发命令。命令由服务层 / 软件层注册，内核只按名路由。"""
+        """下发命令。命令由服务层 / 软件层注册，内核只按名路由。
+
+        viewer 角色只允许白名单内的只读命令（READONLY_CMDS）——
+        认证只回答「是谁」，这里补上「能干什么」。
+        """
         data = request.get_json(silent=True) or {}
         cmd = str(data.get('cmd') or '')
         if not cmd:
             return ctx.fail('缺少 cmd', 400)
+        if request.zp_user.get('role') == 'viewer' and cmd not in READONLY_CMDS:
+            ctx.audit('node.cmd.denied', 'node', name, detail={'cmd': cmd}, result='denied')
+            return ctx.fail(f'viewer 角色只读，不允许执行 {cmd}', 403)
         timeout = float(data.get('timeout') or 30)
         res = fw.nodes.send_cmd(name, cmd, data.get('args') or {}, timeout)
-        ctx.audit('node.cmd', 'node', name, detail={'cmd': cmd})
+        # 审计带 args（截断）—— 只有 cmd 名没有参数，取证时还原不了「写了哪个文件」
+        ctx.audit('node.cmd', 'node', name,
+                  detail={'cmd': cmd, 'args': data.get('args') or {}})
         if res.get('ok'):
             return ctx.ok(res)
         return ctx.fail(res.get('data', '命令执行失败'), 502)

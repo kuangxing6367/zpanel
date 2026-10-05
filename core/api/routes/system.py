@@ -50,6 +50,29 @@ def register(app, ctx):
         info['tools'] = sorted((getattr(fw, 'zkg_tools', None) or {}).keys())
         return ctx.ok({'packages': info})
 
+    @app.route('/api/system/update-check', methods=['GET'])
+    @ctx.require_auth
+    def _update_check():
+        """升级检查：本地 VERSION 对比 GitHub main 的 VERSION（网络不通则如实报错）。"""
+        import urllib.request
+        local = ''
+        try:
+            from core.kernel.paths import project_root
+            with open(os.path.join(project_root(), 'VERSION'), encoding='utf-8') as f:
+                local = f.read().strip()
+        except Exception:
+            pass
+        remote, err = '', ''
+        try:
+            url = 'https://raw.githubusercontent.com/kuangxing6367/zpanel/main/VERSION'
+            with urllib.request.urlopen(url, timeout=10) as resp:
+                remote = resp.read().decode('utf-8', 'replace').strip()
+        except Exception as e:
+            err = f'{type(e).__name__}: {e}'
+        return ctx.ok({'local': local, 'remote': remote,
+                       'update_available': bool(remote and remote != local and not err),
+                       'error': err})
+
     @app.route('/api/tasks', methods=['GET'])
     @ctx.require_auth
     def _tasks():
@@ -66,8 +89,41 @@ def register(app, ctx):
             limit = max(1, min(int(request.args.get('limit') or 100), 500))
         except ValueError:
             limit = 100
-        return ctx.ok({'tasks': tq.list_tasks(state=state, limit=limit),
-                       'stats': tq.stats()})
+        mem = tq.list_tasks(state=state, limit=limit)
+        # 合并历史表：重启前完成的任务仍有账可查（内存里没有 id 的）
+        mem_ids = {t['id'] for t in mem}
+        history = []
+        try:
+            import json
+            cond = "WHERE state=? " if state else ""
+            rows = fw.db.query(
+                f"SELECT * FROM task_history {cond}ORDER BY finished_at DESC LIMIT ?",
+                ((state,) if state else ()) + (limit,))
+            for r in rows or []:
+                if r['id'] in mem_ids:
+                    continue
+                try:
+                    log = json.loads(r['log'] or '[]')
+                except Exception:
+                    log = []
+                try:
+                    result = json.loads(r['result']) if r['result'] else None
+                except Exception:
+                    result = None
+                try:
+                    meta = json.loads(r['meta'] or '{}')
+                except Exception:
+                    meta = {}
+                history.append({'id': r['id'], 'name': r['name'], 'state': r['state'],
+                                'meta': meta, 'log': log, 'error': r['error'],
+                                'result': result, 'submitted_at': r['submitted_at'],
+                                'started_at': r['started_at'],
+                                'finished_at': r['finished_at']})
+        except Exception:
+            pass  # 历史表尚未创建（新装）——如实空着
+        merged = sorted(mem + history,
+                        key=lambda t: t.get('submitted_at') or 0, reverse=True)[:limit]
+        return ctx.ok({'tasks': merged, 'stats': tq.stats()})
 
     @app.route('/api/tasks/<task_id>', methods=['GET'])
     @ctx.require_auth
@@ -120,7 +176,7 @@ def register(app, ctx):
                        'path': getattr(fw, 'config_path', '')})
 
     @app.route('/api/system/config', methods=['POST'])
-    @ctx.require_auth
+    @ctx.require_auth(role='super')
     def _config_save():
         """写回 config.yaml（点路径批量改）。
 

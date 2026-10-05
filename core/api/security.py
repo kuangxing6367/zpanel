@@ -23,7 +23,7 @@ import time
 
 logger = logging.getLogger('zernus')
 
-_ITER = 200_000
+_ITER = 600_000                 # OWASP 2024+ 建议；旧哈希登录时透明升级
 _PREFIX = 'pbkdf2_sha256'
 DEFAULT_ADMIN = 'admin'
 DEFAULT_PASSWORD = 'admin123'
@@ -34,6 +34,14 @@ def hash_password(password: str) -> str:
     salt = os.urandom(16)
     dk = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, _ITER)
     return f"{_PREFIX}${_ITER}${salt.hex()}${dk.hex()}"
+
+
+def needs_rehash(stored: str) -> bool:
+    """旧迭代次数的哈希需要升级（登录成功时透明重哈希）。"""
+    try:
+        return int(str(stored).split('$', 3)[1]) < _ITER
+    except Exception:
+        return False
 
 
 def verify_password(password: str, stored: str) -> bool:
@@ -68,6 +76,18 @@ class AuthService:
         self._login_fails = {}      # ip -> [count, first_ts]，简单登录限速
         self._max_fails = 10
         self._fail_window = 300
+        self._default_pwd_cache = {}    # username -> (bool, ts)：默认口令判定有 600k 轮 pbkdf2，别每请求都算
+
+    def is_using_default_password(self, username: str) -> bool:
+        """该账号是否仍在用出厂默认密码（结果缓存 5 分钟，改密即失效）。"""
+        import time as _t
+        cached = self._default_pwd_cache.get(username)
+        if cached and _t.time() - cached[1] < 300:
+            return cached[0]
+        user = self.get_user(username)
+        ok = bool(user) and verify_password(DEFAULT_PASSWORD, user.get('password_hash') or '')
+        self._default_pwd_cache[username] = (ok, _t.time())
+        return ok
 
     # ── 账号 ──────────────────────────────────────────────
     def ensure_default_admin(self) -> bool:
@@ -91,12 +111,60 @@ class AuthService:
             return {'ok': False, 'error': '用户名不能为空'}
         if self.fw.db.query_one("SELECT id FROM admin_users WHERE username=?", (username,)):
             return {'ok': False, 'error': f'用户 {username} 已存在'}
+        if role not in ('super', 'admin', 'viewer'):
+            return {'ok': False, 'error': f'非法角色: {role}'}
+        if len(str(password or '')) < 8:
+            return {'ok': False, 'error': '密码至少 8 位'}
         now = time.strftime('%Y-%m-%d %H:%M:%S')
         self.fw.db.execute(
             "INSERT INTO admin_users (username, password_hash, role, is_active, created_at) "
             "VALUES (?, ?, ?, 1, ?)",
             (username, hash_password(password), role, now))
         return {'ok': True, 'username': username, 'role': role}
+
+    def update_user(self, username: str, *, role: str = None,
+                    is_active: bool = None, actor: str = '') -> dict:
+        """改角色/启停。**最后一个 super 不可降级或停用** —— 不然面板把自己锁死。"""
+        user = self.get_user(username)
+        if not user:
+            return {'ok': False, 'error': '用户不存在'}
+        if role is not None and role not in ('super', 'admin', 'viewer'):
+            return {'ok': False, 'error': f'非法角色: {role}'}
+        supers = self.fw.db.scalar(
+            "SELECT COUNT(*) FROM admin_users WHERE role='super' AND is_active=1") or 0
+        demoting = (role is not None and role != 'super' and user.get('role') == 'super')
+        deactivating = (is_active is False and user.get('role') == 'super')
+        if user.get('is_active') and user.get('role') == 'super' and supers <= 1 \
+                and (demoting or deactivating):
+            return {'ok': False, 'error': '最后一个 super 账号不可降级/停用'}
+        sets, vals = [], []
+        if role is not None:
+            sets.append('role=?'); vals.append(role)
+        if is_active is not None:
+            sets.append('is_active=?'); vals.append(1 if is_active else 0)
+            if not is_active:
+                sets.append('token=NULL')       # 停用即踢下线
+        if not sets:
+            return {'ok': False, 'error': '没有要修改的字段'}
+        vals.append(username)
+        self.fw.db.execute(f"UPDATE admin_users SET {', '.join(sets)} WHERE username=?", vals)
+        logger.info("[api.auth] 用户 %s 已由 %s 更新", username, actor)
+        return {'ok': True}
+
+    def delete_user(self, username: str, actor: str = '') -> dict:
+        if username == actor:
+            return {'ok': False, 'error': '不能删除当前登录的账号'}
+        user = self.get_user(username)
+        if not user:
+            return {'ok': False, 'error': '用户不存在'}
+        if user.get('role') == 'super':
+            supers = self.fw.db.scalar(
+                "SELECT COUNT(*) FROM admin_users WHERE role='super' AND is_active=1") or 0
+            if supers <= 1:
+                return {'ok': False, 'error': '最后一个 super 账号不可删除'}
+        self.fw.db.execute("DELETE FROM admin_users WHERE username=?", (username,))
+        logger.info("[api.auth] 用户 %s 已由 %s 删除", username, actor)
+        return {'ok': True}
 
     def get_user(self, username: str) -> dict:
         row = self.fw.db.query_one("SELECT * FROM admin_users WHERE username=?", (username,))
@@ -154,8 +222,18 @@ class AuthService:
             return {'ok': False, 'error': '登录状态写入失败'}
         if ip:
             self._login_fails.pop(ip, None)
+        # 旧迭代次数的哈希在登录成功时透明升级（用户无感，安全性单调提升）
+        try:
+            if needs_rehash(user.get('password_hash') or ''):
+                self.fw.db.execute("UPDATE admin_users SET password_hash=? WHERE id=?",
+                                   (hash_password(password), user['id']))
+                logger.info("[api.auth] 用户 %s 密码哈希已升级到 %d 轮",
+                            user['username'], _ITER)
+        except Exception as e:
+            logger.warning("[api.auth] 哈希升级失败: %s", e)
         logger.info("[api.auth] 用户 %s 登录成功（%s）", user['username'], ip or 'unknown')
         return {'ok': True, 'token': token,
+                'must_change_password': self.is_using_default_password(user['username']),
                 'user': {'username': user['username'], 'role': user.get('role', 'admin')}}
 
     def logout(self, token: str) -> dict:
@@ -199,11 +277,14 @@ class AuthService:
             return {'ok': False, 'error': '用户不存在'}
         if not verify_password(old_password, user.get('password_hash') or ''):
             return {'ok': False, 'error': '原密码错误'}
-        if len(str(new_password or '')) < 6:
-            return {'ok': False, 'error': '新密码至少 6 位'}
+        if len(str(new_password or '')) < 8:
+            return {'ok': False, 'error': '新密码至少 8 位'}
+        if str(new_password) == DEFAULT_PASSWORD:
+            return {'ok': False, 'error': '新密码不能与出厂默认密码相同'}
         self.fw.db.execute(
             "UPDATE admin_users SET password_hash=?, token=NULL WHERE id=?",
             (hash_password(new_password), user['id']))
+        self._default_pwd_cache.pop(username, None)     # 门禁立即放行
         return {'ok': True}
 
     # ── 接口令牌（API Key）────────────────────────────────

@@ -23,8 +23,33 @@ from . import routes as routes_mod
 
 logger = logging.getLogger('zernus')
 
-# 不在审计里落库的读取型接口（避免日志噪声）
-_AUDIT_SKIP = {'node.cmd'}
+# 不在审计里落库的读取型命令/接口（前端轮询每 2-8s 一次，全记就是日志洪水）。
+# 写操作与显式动作（install/uninstall/act/…）永远审计。
+AUDIT_SKIP = {
+    'ping', 'node.info', 'sysres.snapshot', 'sysres.top', 'monitor.history',
+    'task.list', 'task.get', 'files.list', 'files.roots', 'files.stat',
+    'sites.list', 'sites.status', 'sites.php-versions', 'sites.render',
+    'runtime.list', 'runtime.logs', 'scheduler.list', 'scheduler.backends',
+    'scheduler.validate', 'backup.list', 'alerts.list', 'alerts.events',
+    'logs.list', 'db.list', 'db.status', 'db.databases', 'db.tables',
+    'db.version', 'db.compat', 'db.services', 'db.processlist',
+    'firewall.status', 'firewall.rules', 'svc.list', 'ssl.local', 'ssl.check',
+    'sites.adopt.scan', 'db.compat', 'db.scan',
+}
+
+# viewer 角色可用的命令白名单（只读集合）—— 写命令一律拒绝
+READONLY_CMDS = frozenset(AUDIT_SKIP | {
+    'files.read', 'db.query', 'logs.tail', 'logs.search', 'runtime.compat',
+    'runtime.detect', 'runtime.env', 'runtime.template', 'runtime.versions',
+    'db.scan', 'db.test', 'ssl.read', 'files.hash', 'files.disk',
+})
+
+# 角色层级：super > admin > viewer
+_ROLE_LEVEL = {'viewer': 0, 'admin': 1, 'super': 2}
+
+
+def _role_at_least(user_role: str, need: str) -> bool:
+    return _ROLE_LEVEL.get(str(user_role or 'viewer'), 0) >= _ROLE_LEVEL.get(need, 1)
 
 
 class ApiContext:
@@ -51,12 +76,18 @@ class ApiContext:
         return jsonify({'ok': False, 'error': error}), status
 
     # ── 请求上下文 ────────────────────────────────────────
-    @staticmethod
-    def client_ip() -> str:
-        """取真实客户端 IP：优先 X-Forwarded-For（反代场景），否则 remote_addr。"""
+    def client_ip(self) -> str:
+        """真实客户端 IP。
+
+        X-Forwarded-For **只信任来自可信代理的连接**（security.trusted_proxies，
+        默认空 = 不信任任何 XFF）—— 否则登录限速按伪造 IP 计数，形同虚设。
+        """
         fwd = request.headers.get('X-Forwarded-For', '')
         if fwd:
-            return fwd.split(',')[0].strip()
+            trusted = (self.fw.config.get('security') or {}).get('trusted_proxies') or []
+            remote = request.remote_addr or ''
+            if remote in trusted or '*' in trusted:
+                return fwd.split(',')[0].strip()
         return request.remote_addr or ''
 
     @staticmethod
@@ -69,24 +100,55 @@ class ApiContext:
                 or request.cookies.get('zp_token') or '')
 
     # ── 鉴权装饰器 ────────────────────────────────────────
-    def require_auth(self, fn):
-        """要求登录（会话令牌或接口令牌均可）。校验通过后 `request.zp_user` 可用。"""
-        @functools.wraps(fn)
-        def wrapper(*a, **kw):
-            token = self.bearer_token()
-            user = self.auth.verify_token(token) or self.auth.verify_api_token(token)
-            if not user:
-                return self.fail('未登录或登录已过期', 401)
-            request.zp_user = user
-            request.zp_token = token
-            return fn(*a, **kw)
-        return wrapper
+    def require_auth(self, fn=None, role: str = None):
+        """要求登录（会话令牌或接口令牌均可）。校验通过后 `request.zp_user` 可用。
+
+        两种用法：`@ctx.require_auth` 直接装饰；`@ctx.require_auth(role='super')`
+        要求最低角色（viewer < admin < super）。用户管理/令牌签发/配置写回/
+        节点纳管这类路由应传 role='super'。
+        认证通过后还有一道**默认口令闸门**：仍用出厂密码的账号，
+        除改密/登录/只读（GET）外的一切操作都拒绝 —— 面板装完的第一件事
+        就该是改密码，写操作在此之前一律不放行。
+        """
+        def deco(f):
+            @functools.wraps(f)
+            def wrapper(*a, **kw):
+                token = self.bearer_token()
+                user = self.auth.verify_token(token) or self.auth.verify_api_token(token)
+                if not user:
+                    return self.fail('未登录或登录已过期', 401)
+                if role and not _role_at_least(user.get('role'), role):
+                    return self.fail(f'权限不足（需要 {role} 角色）', 403)
+                request.zp_user = user
+                request.zp_token = token
+                if (request.method != 'GET'
+                        and request.path not in ('/api/auth/logout', '/api/auth/password',
+                                                 '/api/auth/me')
+                        and self.auth.is_using_default_password(user['username'])):
+                    # 命令通道的只读命令放行（监控查询/收养扫描这类 POST 只读也要能用）
+                    if request.path.endswith('/cmd'):
+                        body = request.get_json(silent=True) or {}
+                        if str(body.get('cmd') or '') in READONLY_CMDS:
+                            return f(*a, **kw)
+                    return self.fail('仍在使用默认密码：请先修改密码（POST /api/auth/password，'
+                                     '新密码至少 8 位）再执行该操作', 403)
+                return f(*a, **kw)
+            return wrapper
+
+        return deco(fn) if fn is not None else deco
 
     # ── 审计 ──────────────────────────────────────────────
     def audit(self, action: str, target_type: str = '', target_name: str = '',
               detail: dict = None, result: str = 'success'):
-        """写审计日志（失败不影响主流程）。"""
+        """写审计日志（失败不影响主流程）。
+
+        轮询类只读命令在 AUDIT_SKIP 里跳过；写操作与显式动作永远审计。
+        每写入若干条顺手清理超过保留期（log.audit_retention_days，默认 30 天）
+        的旧行 —— 与 monitor 历史同一个「采集即清理」纪律，审计表不再无限膨胀。
+        """
         try:
+            if action in AUDIT_SKIP:
+                return
             import json
             user = getattr(request, 'zp_user', None) or {}
             self.fw.db.execute(
@@ -94,8 +156,15 @@ class ApiContext:
                 "target_name, detail, ip_address, result, created_at) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (user.get('id'), user.get('username', ''), action, target_type,
-                 target_name, json.dumps(detail or {}, ensure_ascii=False),
+                 target_name, json.dumps(detail or {}, ensure_ascii=False)[:2000],
                  self.client_ip(), result, time.strftime('%Y-%m-%d %H:%M:%S')))
+            self._audit_count = getattr(self, '_audit_count', 0) + 1
+            if self._audit_count % 200 == 0:
+                days = int((self.fw.config.get('log') or {}).get(
+                    'audit_retention_days', 30) or 30)
+                cutoff = time.strftime('%Y-%m-%d %H:%M:%S',
+                                       time.localtime(time.time() - days * 86400))
+                self.fw.db.execute("DELETE FROM audit_logs WHERE created_at < ?", (cutoff,))
         except Exception as e:
             logger.debug("[api] 审计写入失败: %s", e)
 
@@ -165,17 +234,32 @@ def create_api_app(fw, ctx: ApiContext = None) -> Flask:
         app.json.ensure_ascii = False       # 中文直出，便于调试
     except Exception:
         app.config['JSON_AS_ASCII'] = False
+    # 请求体上限（默认 64MB：文件分块上传 base64 有余量，内存 DoS 被闸住）
+    try:
+        app.config['MAX_CONTENT_LENGTH'] = int(
+            (fw.config.get('api') or {}).get('max_body_mb', 64) or 64) * 1024 * 1024
+    except Exception:
+        app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024
 
     ctx = ctx or ApiContext(fw, app)
     ctx.app = app
 
-    # ── CORS（前端 dev server 跨域调试用；生产同源部署时无影响）──
-    allowed = (fw.config.get('api') or {}).get('cors_origins') or []
+    # 审计时间索引（保留清理与按时间查询都靠它；幂等，启动建一次）
+    try:
+        fw.db.execute("CREATE INDEX IF NOT EXISTS idx_audit_created "
+                      "ON audit_logs (created_at)")
+    except Exception as e:
+        logger.debug("[api] 审计索引创建失败: %s", e)
+
+    # ── CORS：**只对显式白名单放行** ──
+    # 空白名单 = 不加任何 CORS 头（同源部署天然可用）。
+    # 之前「空 = 反射任意 Origin + 带凭据」，任意网站都能带着用户身份跨域调 API。
+    allowed = [o for o in ((fw.config.get('api') or {}).get('cors_origins') or []) if o]
 
     @app.after_request
     def _cors(resp):
         origin = request.headers.get('Origin', '')
-        if origin and (not allowed or origin in allowed):
+        if origin and origin in allowed:
             resp.headers['Access-Control-Allow-Origin'] = origin
             resp.headers['Access-Control-Allow-Credentials'] = 'true'
             resp.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type, X-API-Key'

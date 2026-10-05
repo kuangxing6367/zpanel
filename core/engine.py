@@ -81,18 +81,9 @@ class Framework:
         self.task_queue = TaskQueue(
             workers=tq_cfg.get('workers', 4),
             max_history=tq_cfg.get('max_history', 200),
+            on_finish=self._persist_task_history,
         )
 
-        # zkg 按需加载的机制包（service/startup 启动时填充；插件经 ctx.zkg_tool 取用）
-        self.zkg_tools = {}
-
-        # 原始消息处理器注册表
-        self._raw_message_handlers = []
-        # 后台事件任务引用集
-        self._pending_tasks = set()
-        # 启动横幅所需的已加载清单
-        self._loaded_extensions = []
-        self._loaded_user_plugins = []
 
         # Web API 路由注册表由 webui 扩展在启动时注入（fw.api_registry）；
         # 内核只持中立缓冲，绝不直接依赖 Web 包（保持层倒置为 0）。
@@ -121,6 +112,43 @@ class Framework:
         self.nodes = NodeManager(self)
 
         logger.info("框架核心引擎初始化完成")
+
+        # zkg 按需加载的机制包（service/startup 启动时填充；插件经 ctx.zkg_tool 取用）
+        self.zkg_tools = {}
+
+        # 原始消息处理器注册表
+        self._raw_message_handlers = []
+        # 后台事件任务引用集
+        self._pending_tasks = set()
+        # 启动横幅所需的已加载清单
+        self._loaded_extensions = []
+        self._loaded_user_plugins = []
+
+    def _persist_task_history(self, rec: dict) -> None:
+        """任务终态落库（task_history 表，保留最近 500 条）——重启不丢账。"""
+        import json
+        try:
+            self.db.execute(
+                "CREATE TABLE IF NOT EXISTS task_history ("
+                "id TEXT PRIMARY KEY, name TEXT, state TEXT, meta TEXT, log TEXT, "
+                "error TEXT, result TEXT, submitted_at REAL, started_at REAL, "
+                "finished_at REAL)")
+            self.db.execute(
+                "INSERT OR REPLACE INTO task_history "
+                "(id, name, state, meta, log, error, result, submitted_at, started_at, finished_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (rec.get('id'), rec.get('name'), rec.get('state'),
+                 json.dumps(rec.get('meta') or {}, ensure_ascii=False),
+                 json.dumps((rec.get('log') or [])[-200:], ensure_ascii=False),
+                 rec.get('error'),
+                 json.dumps(rec.get('result'), ensure_ascii=False)[:8000]
+                     if rec.get('result') is not None else None,
+                 rec.get('submitted_at'), rec.get('started_at'), rec.get('finished_at')))
+            self.db.execute(
+                "DELETE FROM task_history WHERE id NOT IN "
+                "(SELECT id FROM task_history ORDER BY finished_at DESC LIMIT 500)")
+        except Exception as e:
+            logger.debug("[task] 历史落库失败: %s", e)
 
     # ── 服务别名（兼容旧代码，指向 service registry）──
 
