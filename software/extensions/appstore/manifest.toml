@@ -1,0 +1,9 @@
+[package]
+id = "appstore"
+name = "应用商店"
+type = "plugin"
+version = "0.1.0"
+description = "单二进制应用的一键安装/启停/卸载（官方源分发，不绑 Docker）"
+dependencies = ["procs", "svcmgr", "pkg"]
+provides = ["appstore"]
+entry = "main.py"

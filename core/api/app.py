@@ -34,7 +34,7 @@ AUDIT_SKIP = {
     'logs.list', 'db.list', 'db.status', 'db.databases', 'db.tables',
     'db.version', 'db.compat', 'db.services', 'db.processlist',
     'firewall.status', 'firewall.rules', 'svc.list', 'ssl.local', 'ssl.check',
-    'sites.adopt.scan', 'db.compat', 'db.scan',
+    'sites.adopt.scan', 'db.compat', 'db.scan', 'app.catalog', 'app.installed',
 }
 
 # viewer 角色可用的命令白名单（只读集合）—— 写命令一律拒绝
@@ -121,7 +121,10 @@ class ApiContext:
                     return self.fail(f'权限不足（需要 {role} 角色）', 403)
                 request.zp_user = user
                 request.zp_token = token
+                # 闸门只管人类会话：API 令牌（user.via=='api_token'）是管理员
+                # 显式签发的授权，不因主口令未改而失效 —— 否则自动化全被挡住。
                 if (request.method != 'GET'
+                        and user.get('via') != 'api_token'
                         and request.path not in ('/api/auth/logout', '/api/auth/password',
                                                  '/api/auth/me')
                         and self.auth.is_using_default_password(user['username'])):
